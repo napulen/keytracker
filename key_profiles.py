@@ -9,6 +9,8 @@ as well as normalized from [0,1] for use in the HMM
 - sapp
 - bellman_budge
 - temperley
+
+Néstor Nápoles (napulen@gmail.com)
 """
 
 # Original key-profiles
@@ -45,6 +47,7 @@ bellman_budge_minor_original = [
 temperley_major_original = [
     0.748, 0.06, 0.488, 0.082, 0.67, 0.46, 
     0.096, 0.715, 0.104, 0.366, 0.057, 0.4,
+]    
 temperley_minor_original = [
     0.712, 0.084, 0.474, 0.618, 0.049, 0.46,
     0.105, 0.747, 0.404, 0.067, 0.133, 0.33
