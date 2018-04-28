@@ -8,63 +8,24 @@ Nestor Napoles (napulen@gmail.com)
 import key_transitions as kt
 import key_profiles as kp
 import collections
+import pprint as pp
 
 states = (
-    'C',
-    'Db',
-    'D',
-    'Eb',
-    'E',
-    'F',
-    'F#',
-    'G',
-    'Ab',
-    'A',
-    'Bb',
-    'B',
-    'c',
-    'c#',
-    'd',
-    'eb',
-    'e',
-    'f',
-    'f#',
-    'g',
-    'ab',
-    'a',
-    'bb',
-    'b',
+	'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
+    'c', 'c#', 'd', 'eb', 'e', 'f', 'f#', 'g', 'ab', 'a', 'bb', 'b',
 )
 
 start_p = {
-    'C': 1.0/24.0,
-    'Db': 1.0/24.0,
-    'D': 1.0/24.0,
-    'Eb': 1.0/24.0,
-    'E': 1.0/24.0,
-    'F': 1.0/24.0,
-    'F#': 1.0/24.0,
-    'G': 1.0/24.0,
-    'Ab': 1.0/24.0,
-    'A': 1.0/24.0,
-    'Bb': 1.0/24.0,
-    'B': 1.0/24.0,
-    'c': 1.0/24.0,
-    'c#': 1.0/24.0,
-    'd': 1.0/24.0,
-    'eb': 1.0/24.0,
-    'e': 1.0/24.0,
-    'f': 1.0/24.0,
-    'f#': 1.0/24.0,
-    'g': 1.0/24.0,
-    'ab': 1.0/24.0,
-    'a': 1.0/24.0,
-    'bb': 1.0/24.0,
-    'b': 1.0/24.0
+    'C': 1.0/24.0, 'Db': 1.0/24.0, 'D': 1.0/24.0, 'Eb': 1.0/24.0,
+    'E': 1.0/24.0, 'F': 1.0/24.0, 'F#': 1.0/24.0, 'G': 1.0/24.0,
+    'Ab': 1.0/24.0, 'A': 1.0/24.0, 'Bb': 1.0/24.0, 'B': 1.0/24.0,
+    'c': 1.0/24.0, 'c#': 1.0/24.0, 'd': 1.0/24.0, 'eb': 1.0/24.0,
+    'e': 1.0/24.0, 'f': 1.0/24.0, 'f#': 1.0/24.0, 'g': 1.0/24.0,
+    'ab': 1.0/24.0, 'a': 1.0/24.0, 'bb': 1.0/24.0, 'b': 1.0/24.0,
 }
 
 def create_transition_probabilities():
-    """ Returns the transition probabilities
+    """Returns the transition probabilities
 
     The 'distance' between two keys is determined
     by a matrix of the form:
@@ -97,8 +58,9 @@ def create_transition_probabilities():
         probs1 = collections.deque(pat1)
         probs2 = collections.deque(pat2)
         probs1.rotate(shift1)
-        probs2.rotate(shift2)        
-        d[key] = list(probs1) + list(probs2)
+        probs2.rotate(shift2)
+        transitions = list(probs1) + list(probs2)         
+        d[key] = {key:transitions[idx] for idx,key in enumerate(states)}
     return d
 
 def create_emission_probabilities(profiles="krumhansl_kessler"):
@@ -111,8 +73,9 @@ def create_emission_probabilities(profiles="krumhansl_kessler"):
             profile = profiles + "_minor"
         key_profiles = getattr(kp, profile)
         key_profiles = collections.deque(key_profiles)
-        key_profiles.rotate(idx%12)
-        d[key] = list(key_profiles)
+        key_profiles.rotate(idx % 12)
+        key_profiles = list(key_profiles)
+        d[key] = {pc:key_profiles[pc] for pc in range(12)}
     return d
 
 def viterbi(obs, states, start_p, trans_p, emit_p):
@@ -155,4 +118,8 @@ def dptable(V):
         yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
 
 #viterbi(obs, states, start_p, trans_p, emit_p)
-create_transition_probabilities()
+
+trans_p = create_transition_probabilities()
+emit_p = create_emission_probabilities()
+
+pp.pprint(trans_p)
