@@ -26,7 +26,7 @@ start_p = {
     'ab': 1.0/24.0, 'a': 1.0/24.0, 'bb': 1.0/24.0, 'b': 1.0/24.0,
 }
 
-def create_transition_probabilities():
+def create_transition_probabilities(transitions="key_transitions_exponential"):
     """Returns the transition probabilities
 
     The 'distance' between two keys is determined
@@ -46,23 +46,24 @@ def create_transition_probabilities():
     do that and transpose it to all keys
     """
     d = dict()
+    key_transitions = getattr(kt, transitions)    
     for idx,key in enumerate(states):
         if idx < 12:    # major keys
-            pat1 = kt.key_transitions[:12]
-            pat2 = kt.key_transitions[12:]
+            pat1 = key_transitions[:12]
+            pat2 = key_transitions[12:]
             shift1 = idx
             shift2 = idx
         else:   # minor keys
-            pat1 = kt.key_transitions[12:]
-            pat2 = kt.key_transitions[:12]
+            pat1 = key_transitions[12:]
+            pat2 = key_transitions[:12]
             shift1 = (idx + 3) % 12
             shift2 = idx % 12
         probs1 = collections.deque(pat1)
         probs2 = collections.deque(pat2)
         probs1.rotate(shift1)
         probs2.rotate(shift2)
-        transitions = np.array(list(probs1) + list(probs2), dtype='float64')         
-        d[key] = {key:transitions[idx] for idx,key in enumerate(states)}
+        key_transitions = np.array(list(probs1) + list(probs2), dtype='float64')         
+        d[key] = {key:key_transitions[idx] for idx,key in enumerate(states)}
     return d
 
 def create_emission_probabilities(profiles="krumhansl_kessler"):
@@ -131,16 +132,29 @@ def dptable(V):
         yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
 
 
-trans_p = create_transition_probabilities()
+trans_p = create_transition_probabilities(transitions='neighbour_level')
 emit_p = create_emission_probabilities(profiles='krumhansl_kessler')
 
-obs = create_observation_list('midi/wtc1/C.mid')
+obs = create_observation_list('midi/wtc1/C.mid')[:10]
 
 #obs = [0, 2, 4, 5, 7, 9, 11, 0]
 
-print(obs)
-#pp.pprint(type(trans_p['C']))
-
-states, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
-
+#print(obs)
 #pp.pprint(trans_p)
+
+#state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+
+pp.pprint(trans_p)
+
+'''
+obs = state_list # the keys become the observations
+states # remain the same
+emit_p = trans_p # the transition probabilities become the observation probabilities
+trans_p = create_transition_probabilities(transitions='neighbour_level') # no modulations
+start_p #remains the same
+
+pp.pprint(trans_p)
+
+key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+
+'''
