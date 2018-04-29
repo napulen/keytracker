@@ -9,6 +9,8 @@ import key_transitions as kt
 import key_profiles as kp
 import collections
 import pprint as pp
+import music21
+import numpy as np
 
 states = (
 	'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
@@ -59,7 +61,7 @@ def create_transition_probabilities():
         probs2 = collections.deque(pat2)
         probs1.rotate(shift1)
         probs2.rotate(shift2)
-        transitions = list(probs1) + list(probs2)         
+        transitions = np.array(list(probs1) + list(probs2), dtype='float64')         
         d[key] = {key:transitions[idx] for idx,key in enumerate(states)}
     return d
 
@@ -74,26 +76,36 @@ def create_emission_probabilities(profiles="krumhansl_kessler"):
         key_profiles = getattr(kp, profile)
         key_profiles = collections.deque(key_profiles)
         key_profiles.rotate(idx % 12)
-        key_profiles = list(key_profiles)
+        key_profiles = np.array(list(key_profiles), dtype='float64')
         d[key] = {pc:key_profiles[pc] for pc in range(12)}
     return d
+
+def create_observation_list(midi_file):
+	s = music21.converter.parse(midi_file)
+	obs = list()
+	for note in s.flat.notes:
+		if type(note) is music21.chord.Chord:
+			obs.extend(note.orderedPitchClasses)
+		else:
+			obs.append(note.pitch.pitchClass)
+	return obs
 
 def viterbi(obs, states, start_p, trans_p, emit_p):
     V = [{}]
     for st in states:
-       V[0][st] = {"prob": start_p[st] * emit_p[st][obs[0]], "prev": None}
+        V[0][st] = {"prob": np.log(start_p[st]) + np.log(emit_p[st][obs[0]]), "prev": None}
     # Run Viterbi when t > 0
     for t in range(1, len(obs)):
         V.append({})
-        for st in states:
-            max_tr_prob = max(V[t-1][prev_st]["prob"]*trans_p[prev_st][st] for prev_st in states)
+        for st in states:            
+            max_tr_prob = max(V[t-1][prev_st]["prob"] + np.log(trans_p[prev_st][st]) for prev_st in states)
             for prev_st in states:
-                if V[t-1][prev_st]["prob"] * trans_p[prev_st][st] == max_tr_prob:
-                    max_prob = max_tr_prob * emit_p[st][obs[t]]
+                if V[t-1][prev_st]["prob"] + np.log(trans_p[prev_st][st]) == max_tr_prob:
+                    max_prob = max_tr_prob + np.log(emit_p[st][obs[t]])
                     V[t][st] = {"prob": max_prob, "prev": prev_st}
                     break
-    for line in dptable(V):
-        print(line)
+    #for line in dptable(V):
+    #    print(line)
     opt = []
     # The highest probability
     max_prob = max(value["prob"] for value in V[-1].values())
@@ -110,6 +122,7 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
         previous = V[t + 1][previous]["prev"]
 
     print('The steps of states are ' + ' '.join(opt) + ' with highest probability of %s' % max_prob)
+    return opt, max_prob
 
 def dptable(V):
     # Print a table of steps from dictionary
@@ -117,9 +130,17 @@ def dptable(V):
     for state in V[0]:
         yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
 
-#viterbi(obs, states, start_p, trans_p, emit_p)
 
 trans_p = create_transition_probabilities()
-emit_p = create_emission_probabilities()
+emit_p = create_emission_probabilities(profiles='krumhansl_kessler')
 
-pp.pprint(trans_p)
+obs = create_observation_list('midi/wtc1/C.mid')
+
+#obs = [0, 2, 4, 5, 7, 9, 11, 0]
+
+print(obs)
+#pp.pprint(type(trans_p['C']))
+
+states, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+
+#pp.pprint(trans_p)
