@@ -48,14 +48,14 @@ def create_transition_probabilities(transitions="key_transitions_exponential"):
     d = dict()
     key_transitions = getattr(kt, transitions)    
     for idx,key in enumerate(states):
+        pat1 = key_transitions[:12]
+        pat2 = key_transitions[12:]
+        shift1 = idx % 12
         if idx < 12:    # major keys
-            pat1 = key_transitions[:12]
-            pat2 = key_transitions[12:]
             shift1 = idx
             shift2 = idx
         else:   # minor keys
-            pat1 = key_transitions[12:]
-            pat2 = key_transitions[:12]
+            pat1, pat2 = pat2, pat1            
             shift1 = (idx + 3) % 12
             shift2 = idx % 12
         probs1 = collections.deque(pat1)
@@ -132,12 +132,12 @@ def dptable(V):
         yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
 
 
-trans_p = create_transition_probabilities()
+trans_p = create_transition_probabilities(transitions='key_transitions_exponential_10')
 emit_p = create_emission_probabilities(profiles='sapp')
 
-obs = create_observation_list('midi/wtc1/02_c.mid')
+obs = create_observation_list('midi/ballade_g.mid')
 
-#obs = [0, 2, 4, 5, 7, 9, 11, 0]
+#obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
 #print(obs)
 #pp.pprint(trans_p)
