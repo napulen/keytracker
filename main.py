@@ -133,29 +133,29 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     return opt, max_prob
 
 
-transitions = 'key_transitions_exponential_10'
-trans_p = create_transition_probabilities(transitions=transitions)
-emit_p = create_emission_probabilities(profiles='sapp')
+if __name__ == '__main__':
+    transitions = 'key_transitions_exponential_10'
+    trans_p = create_transition_probabilities(transitions=transitions)
+    emit_p = create_emission_probabilities(profiles='sapp')
+    obs = create_observation_list('midi/ballade_g.mid')
 
-obs = create_observation_list('midi/ballade_g.mid')
+    # obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
-# obs = [0, 1, 4, 5, 7, 8, 10, 0]
+    # print(obs)
+    # pp.pprint(trans_p)
 
-# print(obs)
-# pp.pprint(trans_p)
+    state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
 
-state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+    # pp.pprint(trans_p)
 
-# pp.pprint(trans_p)
+    obs = state_list  # the keys become the observations
+    # states, remains the same
+    emit_p = trans_p  # the transition probs become the observation probs
+    # No modulations
+    transitions = 'key_transitions_null'
+    trans_p = create_transition_probabilities(transitions=transitions)
+    # start_p, remains the same
 
-obs = state_list  # the keys become the observations
-# states, remains the same
-emit_p = trans_p  # the transition probs become the observation probs
-# No modulations
-transitions = 'key_transitions_null'
-trans_p = create_transition_probabilities(transitions=transitions)
-# start_p, remains the same
+    # pp.pprint(trans_p)
 
-# pp.pprint(trans_p)
-
-key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
