@@ -10,7 +10,7 @@ import key_transitions as kt
 import key_profiles as kp
 import collections
 import pprint as pp
-import music21
+import mido
 import numpy as np
 
 states = (
@@ -86,13 +86,10 @@ def create_emission_probabilities(profiles="krumhansl_kessler"):
 
 
 def create_observation_list(midi_file):
-    s = music21.converter.parse(midi_file)
-    obs = list()
-    for note in s.flat.notes:
-        if type(note) is music21.chord.Chord:
-            obs.extend(note.orderedPitchClasses)
-        else:
-            obs.append(note.pitch.pitchClass)
+    """Returns a list of pitch classes from the notes on a MIDI file"""
+    mid = mido.MidiFile(midi_file)
+    obs = [msg.note % 12 for msg in mid
+           if msg.type == 'note_on' and msg.velocity > 0]
     return obs
 
 
