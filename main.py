@@ -28,7 +28,7 @@ start_p = {
 }
 
 
-def create_transition_probabilities(transitions="key_transitions_exponential"):
+def create_transition_probabilities(key_transitions):
     """Returns the transition probabilities
 
     The 'distance' between two keys is determined
@@ -48,7 +48,6 @@ def create_transition_probabilities(transitions="key_transitions_exponential"):
     do that and transpose it to all keys
     """
     d = dict()
-    key_transitions = getattr(kt, transitions)
     for idx, key in enumerate(states):
         pat1 = key_transitions[:12]
         pat2 = key_transitions[12:]
@@ -69,15 +68,14 @@ def create_transition_probabilities(transitions="key_transitions_exponential"):
     return d
 
 
-def create_emission_probabilities(profiles="krumhansl_kessler"):
+def create_emission_probabilities(major, minor):
     """Returns the emission probabilities"""
     d = dict()
     for idx, key in enumerate(states):
         if idx < 12:    # major keys
-            profile = profiles + "_major"
+            key_profiles = major
         else:
-            profile = profiles + "_minor"
-        key_profiles = getattr(kp, profile)
+            key_profiles = minor
         key_profiles = collections.deque(key_profiles)
         key_profiles.rotate(idx % 12)
         key_profiles = np.array(list(key_profiles), dtype='float64')
@@ -134,10 +132,12 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 
 
 if __name__ == '__main__':
-    transitions = 'key_transitions_exponential_10'
-    trans_p = create_transition_probabilities(transitions=transitions)
-    emit_p = create_emission_probabilities(profiles='sapp')
-    obs = create_observation_list('midi/ballade_g.mid')
+    key_transitions = kt.key_transitions_exponential
+    trans_p = create_transition_probabilities(key_transitions)
+    major = kp.krumhansl_kessler_major
+    minor = kp.krumhansl_kessler_minor
+    emit_p = create_emission_probabilities(major, minor)
+    obs = create_observation_list('midi/wtc1/01_C.mid')
 
     # obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
@@ -152,8 +152,8 @@ if __name__ == '__main__':
     # states, remains the same
     emit_p = trans_p  # the transition probs become the observation probs
     # No modulations
-    transitions = 'key_transitions_null'
-    trans_p = create_transition_probabilities(transitions=transitions)
+    key_transitions = kt.key_transitions_null
+    trans_p = create_transition_probabilities(key_transitions)
     # start_p, remains the same
 
     # pp.pprint(trans_p)
