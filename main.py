@@ -76,21 +76,30 @@ def create_observation_list(midi_file):
     return get_pc_from_midi_notes(notes)
 
 
+def mylog(x):
+    """Returns the logarithm of x (without the annoying warnings of np.log)"""
+    if x < 8.7565107e-27:  # Anything lower than -60dB gets -inf
+        ans = -np.inf
+    else:
+        ans = np.log(x)
+    return ans
+
+
 def viterbi(obs, states, start_p, trans_p, emit_p):
     V = [{}]
     for st in states:
         V[0][st] = {
-            "prob": np.log(start_p[st])
+            "prob": mylog(start_p[st])
             + np.log(emit_p[st][obs[0]]), "prev": None
             }
     # Run Viterbi when t > 0
     for t in range(1, len(obs)):
         V.append({})
         for st in states:
-            max_tr_prob = max(V[t-1][prev_st]["prob"] + np.log(trans_p[prev_st][st]) for prev_st in states)
+            max_tr_prob = max(V[t-1][prev_st]["prob"] + mylog(trans_p[prev_st][st]) for prev_st in states)
             for prev_st in states:
-                if V[t-1][prev_st]["prob"] + np.log(trans_p[prev_st][st]) == max_tr_prob:
-                    max_prob = max_tr_prob + np.log(emit_p[st][obs[t]])
+                if V[t-1][prev_st]["prob"] + mylog(trans_p[prev_st][st]) == max_tr_prob:
+                    max_prob = max_tr_prob + mylog(emit_p[st][obs[t]])
                     V[t][st] = {"prob": max_prob, "prev": prev_st}
                     break
     # for line in dptable(V):
@@ -122,7 +131,7 @@ if __name__ == '__main__':
     major = kp.krumhansl_kessler_major
     minor = kp.krumhansl_kessler_minor
     emit_p = create_emission_probabilities(major, minor)
-    obs = create_observation_list('midi/wtc1/02_c.mid')
+    obs = create_observation_list('midi/wtc1/01_C.mid')
 
     # obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
