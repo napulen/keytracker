@@ -28,24 +28,7 @@ start_p = {
 
 
 def create_transition_probabilities(key_transitions):
-    """Returns the transition probabilities
-
-    The 'distance' between two keys is determined
-    by a matrix of the form:
-    D   d   F   f   Ab  ab  Cb  cb  Ebb
-    A   a   C   c   Eb  eb  Gb  gb  Bbb
-    E   e   G   g   Bb  bb  Db  db  Fb
-    B   b   D   d   F   f   Ab  ab  Cb
-    F#  f#  A   a   C   c   Eb  eb  Gb
-    C#  c#  E   e   G   g   Bb  bb  Db
-    G#  g#  B   b   D   d   F   f   Ab
-    D#  d#  F#  f#  A   a   C   c   Eb
-    A#  a#  C#  c#  E   e   G   g   Bb
-
-    This matrix is difficult to characterize by
-    a single vector, this function attempts to
-    do that and transpose it to all keys
-    """
+    """Returns the transition probabilities"""
     d = dict()
     for idx, key in enumerate(states):
         tonic = key_transitions[:12]
