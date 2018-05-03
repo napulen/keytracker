@@ -174,7 +174,7 @@ if __name__ == '__main__':
             trans_p = create_transition_probabilities(key_transitions)
             key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
             guess_key = key[0]
-            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)        
+            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
             print('{}:\t{}\t{}\t{}'.format(filepath,
                                            ground_truth_key,
                                            guess_key,
