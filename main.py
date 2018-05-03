@@ -78,11 +78,7 @@ def create_observation_list(midi_file):
 
 def mylog(x):
     """Returns the logarithm of x (without the annoying warnings of np.log)"""
-    if x < 8.7565107e-27:  # Anything lower than -60dB gets -inf
-        ans = -np.inf
-    else:
-        ans = np.log(x)
-    return ans
+    return np.log(x) if x > 8.7565e-27 else -np.inf
 
 
 def viterbi(obs, states, start_p, trans_p, emit_p):
