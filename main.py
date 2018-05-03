@@ -22,7 +22,6 @@ enharmonics = {
     'c#': 'db', 'eb': 'd#', 'f#': 'gb', 'ab': 'g#', 'bb': 'a#',
 }
 
-
 start_p = {
     'C': 1.0/24.0, 'Db': 1.0/24.0, 'D': 1.0/24.0, 'Eb': 1.0/24.0,
     'E': 1.0/24.0, 'F': 1.0/24.0, 'F#': 1.0/24.0, 'G': 1.0/24.0,
@@ -144,15 +143,26 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 
 
 if __name__ == '__main__':
+    transitions = 'key_transitions_exponential_10'
+    profiles_major = 'sapp_major'
+    profiles_minor = 'sapp_minor'
+    print("Hidden Markov Model parameters:\n"
+          "key_transitions: {}\n"
+          "key_profile (major): {}\n"
+          "key_profile (minor): {}\n"
+          "Filename\tOriginal\tGuess\tCorrect?".format(transitions,
+                                                       profiles_major,
+                                                       profiles_minor)
+          )
     for root, dirs, files in os.walk('midi'):
         for filename in files:
             filepath = os.path.join(root, filename)
             ground_truth_key = get_key_from_filename(filename)
             # Preparing the args for the first HMM
-            key_transitions = kt.key_transitions_exponential_10
+            key_transitions = kt.key_transitions[transitions]
             trans_p = create_transition_probabilities(key_transitions)
-            major = kp.sapp_major
-            minor = kp.sapp_minor
+            major = kp.normalized[profiles_major]
+            minor = kp.normalized[profiles_minor]
             emit_p = create_emission_probabilities(major, minor)
             obs = create_observation_list(filepath)
             state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
@@ -160,12 +170,11 @@ if __name__ == '__main__':
             # Preparing the args for the second HMM
             obs = state_list  # the keys become the observations
             emit_p = trans_p  # the transitions become emission
-            key_transitions = kt.key_transitions_null
+            key_transitions = kt.key_transitions["key_transitions_null"]
             trans_p = create_transition_probabilities(key_transitions)
             key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
             guess_key = key[0]
-            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
-
+            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)        
             print('{}:\t{}\t{}\t{}'.format(filepath,
                                            ground_truth_key,
                                            guess_key,
