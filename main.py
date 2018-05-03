@@ -66,6 +66,7 @@ def get_notes_from_midi(midi_file):
 
 
 def get_pc_from_midi_notes(notes):
+    """Returns the list of pitch-classes from a list of midi notes"""
     return [note % 12 for note in notes]
 
 
