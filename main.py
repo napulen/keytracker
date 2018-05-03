@@ -8,7 +8,6 @@ Nestor Napoles (napulen@gmail.com)
 
 import key_transitions as kt
 import key_profiles as kp
-import pprint as pp
 import mido
 import numpy as np
 import os
@@ -91,6 +90,11 @@ def get_key_from_filename(filename):
     return key if key in enharmonics else 'x'
 
 
+def is_key_guess_correct(ground_truth, guess):
+    """Returns whether a key guess is correct or not"""
+    return True if ground_truth_key == guess_key else False
+
+
 def viterbi(obs, states, start_p, trans_p, emit_p):
     V = [{}]
     for st in states:
@@ -143,7 +147,7 @@ if __name__ == '__main__':
             minor = kp.sapp_minor
             emit_p = create_emission_probabilities(major, minor)
             obs = create_observation_list(filepath)
-            state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+            state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
 
             # Preparing the args for the second HMM
             obs = state_list  # the keys become the observations
@@ -152,9 +156,9 @@ if __name__ == '__main__':
             trans_p = create_transition_probabilities(key_transitions)
             key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
             guess_key = key[0]
-            iscorrect = "Good" if ground_truth_key == guess_key else "Wrong"
+            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
 
             print('{}:\t{}\t{}\t{}'.format(filepath,
                                            ground_truth_key,
                                            guess_key,
-                                           iscorrect))
+                                           "Good" if iscorrect else "Wrong"))
