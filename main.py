@@ -8,7 +8,6 @@ Nestor Napoles (napulen@gmail.com)
 
 import key_transitions as kt
 import key_profiles as kp
-import collections
 import pprint as pp
 import mido
 import numpy as np
@@ -49,21 +48,16 @@ def create_transition_probabilities(key_transitions):
     """
     d = dict()
     for idx, key in enumerate(states):
-        pat1 = key_transitions[:12]
-        pat2 = key_transitions[12:]
-        shift1 = idx % 12
-        if idx < 12:    # major keys
-            shift1 = idx
-            shift2 = idx
-        else:   # minor keys
-            pat1, pat2 = pat2, pat1
-            shift1 = (idx + 3) % 12
-            shift2 = idx % 12
-        probs1 = collections.deque(pat1)
-        probs2 = collections.deque(pat2)
-        probs1.rotate(shift1)
-        probs2.rotate(shift2)
-        kt_ = np.array(list(probs1) + list(probs2), dtype='float64')
+        tonic = key_transitions[:12]
+        relative = key_transitions[12:]
+        tonic_rotation = -(idx % 12)
+        relative_rotation = -(idx % 12)
+        if idx >= 12:
+            tonic, relative = relative, tonic
+            tonic_rotation = (tonic_rotation - 3) % 12
+        probs1 = tonic[tonic_rotation:] + tonic[:tonic_rotation]
+        probs2 = relative[relative_rotation:] + relative[:relative_rotation]
+        kt_ = probs1 + probs2
         d[key] = {key: kt_[idx] for idx, key in enumerate(states)}
     return d
 
@@ -72,14 +66,10 @@ def create_emission_probabilities(major, minor):
     """Returns the emission probabilities"""
     d = dict()
     for idx, key in enumerate(states):
-        if idx < 12:    # major keys
-            key_profiles = major
-        else:
-            key_profiles = minor
-        key_profiles = collections.deque(key_profiles)
-        key_profiles.rotate(idx % 12)
-        key_profiles = np.array(list(key_profiles), dtype='float64')
-        d[key] = {pc: key_profiles[pc] for pc in range(12)}
+        rotation = -(idx % 12)
+        profile = major if idx < 12 else minor
+        profile = profile[rotation:] + profile[:rotation]
+        d[key] = {pc: profile[pc] for pc in range(12)}
     return d
 
 
@@ -132,7 +122,7 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 
 
 if __name__ == '__main__':
-    key_transitions = kt.key_transitions_exponential
+    key_transitions = kt.key_transitions_exponential_10
     trans_p = create_transition_probabilities(key_transitions)
     major = kp.krumhansl_kessler_major
     minor = kp.krumhansl_kessler_minor
@@ -142,7 +132,7 @@ if __name__ == '__main__':
     # obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
     # print(obs)
-    # pp.pprint(trans_p)
+    # pp.pprint(emit_p)
 
     state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
 
