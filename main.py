@@ -86,7 +86,7 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     for st in states:
         V[0][st] = {
             "prob": mylog(start_p[st])
-            + np.log(emit_p[st][obs[0]]), "prev": None
+            + mylog(emit_p[st][obs[0]]), "prev": None
             }
     # Run Viterbi when t > 0
     for t in range(1, len(obs)):
@@ -124,8 +124,8 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 if __name__ == '__main__':
     key_transitions = kt.key_transitions_exponential_10
     trans_p = create_transition_probabilities(key_transitions)
-    major = kp.krumhansl_kessler_major
-    minor = kp.krumhansl_kessler_minor
+    major = kp.sapp_major
+    minor = kp.sapp_minor
     emit_p = create_emission_probabilities(major, minor)
     obs = create_observation_list('midi/wtc1/01_C.mid')
 
