@@ -56,12 +56,23 @@ def create_emission_probabilities(major, minor):
     return d
 
 
+def get_notes_from_midi(midi_file):
+    """Returns a list of notes from the note_on events of a MIDI file"""
+    mid = mido.MidiFile(midi_file)
+    notes = [msg.note for msg in mid
+             if msg.type == 'note_on'
+             and msg.velocity > 0]
+    return notes
+
+
+def get_pc_from_midi_notes(notes):
+    return [note % 12 for note in notes]
+
+
 def create_observation_list(midi_file):
     """Returns a list of pitch classes from the notes on a MIDI file"""
-    mid = mido.MidiFile(midi_file)
-    obs = [msg.note % 12 for msg in mid
-           if msg.type == 'note_on' and msg.velocity > 0]
-    return obs
+    notes = get_notes_from_midi(midi_file)
+    return get_pc_from_midi_notes(notes)
 
 
 def viterbi(obs, states, start_p, trans_p, emit_p):
@@ -110,7 +121,7 @@ if __name__ == '__main__':
     major = kp.krumhansl_kessler_major
     minor = kp.krumhansl_kessler_minor
     emit_p = create_emission_probabilities(major, minor)
-    obs = create_observation_list('midi/wtc1/01_C.mid')
+    obs = create_observation_list('midi/wtc1/02_c.mid')
 
     # obs = [0, 1, 4, 5, 7, 8, 10, 0]
 
