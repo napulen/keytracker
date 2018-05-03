@@ -11,11 +11,15 @@ import key_profiles as kp
 import pprint as pp
 import mido
 import numpy as np
+import os
 
 states = (
     'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
     'c', 'c#', 'd', 'eb', 'e', 'f', 'f#', 'g', 'ab', 'a', 'bb', 'b',
 )
+
+enharmonics = list(states) + ['C#', 'D#', 'Gb', 'G#', 'A#',
+                              'db', 'd#', 'gb', 'g#', 'a#']
 
 start_p = {
     'C': 1.0/24.0, 'Db': 1.0/24.0, 'D': 1.0/24.0, 'Eb': 1.0/24.0,
@@ -81,6 +85,12 @@ def mylog(x):
     return np.log(x) if x > 8.7565e-27 else -np.inf
 
 
+def get_key_from_filename(filename):
+    """Returns the key of a midi file if it is a postfix of the filename"""
+    key = filename[:-4].split('_')[-1]
+    return key if key in enharmonics else 'x'
+
+
 def viterbi(obs, states, start_p, trans_p, emit_p):
     V = [{}]
     for st in states:
@@ -115,37 +125,36 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
         opt.insert(0, V[t + 1][previous]["prev"])
         previous = V[t + 1][previous]["prev"]
 
-    print('The steps of states are '
-          + ' '.join(opt)
-          + ' with highest probability of %s' % max_prob)
+    # print('The steps of states are '
+    #     + ' '.join(opt)
+    #      + ' with highest probability of %s' % max_prob)
     return opt, max_prob
 
 
 if __name__ == '__main__':
-    key_transitions = kt.key_transitions_exponential_10
-    trans_p = create_transition_probabilities(key_transitions)
-    major = kp.sapp_major
-    minor = kp.sapp_minor
-    emit_p = create_emission_probabilities(major, minor)
-    obs = create_observation_list('midi/wtc1/01_C.mid')
+    for root, dirs, files in os.walk('midi'):
+        for filename in files:
+            filepath = os.path.join(root, filename)
+            ground_truth_key = get_key_from_filename(filename)
+            # Preparing the args for the first HMM
+            key_transitions = kt.key_transitions_exponential_10
+            trans_p = create_transition_probabilities(key_transitions)
+            major = kp.sapp_major
+            minor = kp.sapp_minor
+            emit_p = create_emission_probabilities(major, minor)
+            obs = create_observation_list(filepath)
+            state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
 
-    # obs = [0, 1, 4, 5, 7, 8, 10, 0]
+            # Preparing the args for the second HMM
+            obs = state_list  # the keys become the observations
+            emit_p = trans_p  # the transitions become emission
+            key_transitions = kt.key_transitions_null
+            trans_p = create_transition_probabilities(key_transitions)
+            key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+            guess_key = key[0]
+            iscorrect = "Good" if ground_truth_key == guess_key else "Wrong"
 
-    # print(obs)
-    # pp.pprint(emit_p)
-
-    state_list, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
-
-    # pp.pprint(trans_p)
-
-    obs = state_list  # the keys become the observations
-    # states, remains the same
-    emit_p = trans_p  # the transition probs become the observation probs
-    # No modulations
-    key_transitions = kt.key_transitions_null
-    trans_p = create_transition_probabilities(key_transitions)
-    # start_p, remains the same
-
-    # pp.pprint(trans_p)
-
-    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+            print('{}:\t{}\t{}\t{}'.format(filepath,
+                                           ground_truth_key,
+                                           guess_key,
+                                           iscorrect))
