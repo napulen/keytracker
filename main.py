@@ -17,8 +17,11 @@ states = (
     'c', 'c#', 'd', 'eb', 'e', 'f', 'f#', 'g', 'ab', 'a', 'bb', 'b',
 )
 
-enharmonics = list(states) + ['C#', 'D#', 'Gb', 'G#', 'A#',
-                              'db', 'd#', 'gb', 'g#', 'a#']
+enharmonics = {
+    'Db': 'C#', 'Eb': 'D#', 'F#': 'Gb', 'Ab': 'G#', 'Bb': 'A#',
+    'c#': 'db', 'eb': 'd#', 'f#': 'gb', 'ab': 'g#', 'bb': 'a#',
+}
+
 
 start_p = {
     'C': 1.0/24.0, 'Db': 1.0/24.0, 'D': 1.0/24.0, 'Eb': 1.0/24.0,
@@ -87,12 +90,17 @@ def mylog(x):
 def get_key_from_filename(filename):
     """Returns the key of a midi file if it is a postfix of the filename"""
     key = filename[:-4].split('_')[-1]
-    return key if key in enharmonics else 'x'
+    keys_plus_enharmonics = list(states) + list(enharmonics.values())
+    return key if key in keys_plus_enharmonics else 'x'
 
 
 def is_key_guess_correct(ground_truth, guess):
     """Returns whether a key guess is correct or not"""
-    return True if ground_truth_key == guess_key else False
+    if ground_truth in states:
+        iscorrect = True if ground_truth == guess else False
+    elif ground_truth in list(enharmonics.values()):
+        iscorrect = True if guess in enharmonics and ground_truth == enharmonics[guess] else False
+    return iscorrect
 
 
 def viterbi(obs, states, start_p, trans_p, emit_p):
