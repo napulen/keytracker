@@ -144,38 +144,51 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 
 if __name__ == '__main__':
     transitions = 'key_transitions_exponential_10'
-    profiles_major = 'sapp_major'
-    profiles_minor = 'sapp_minor'
-    print("Hidden Markov Model parameters:\n"
-          "key_transitions: {}\n"
-          "key_profile (major): {}\n"
-          "key_profile (minor): {}\n"
-          "Filename\tOriginal\tGuess\tCorrect?".format(transitions,
-                                                       profiles_major,
-                                                       profiles_minor)
-          )
-    for root, dirs, files in os.walk('midi'):
-        for filename in files:
-            filepath = os.path.join(root, filename)
-            ground_truth_key = get_key_from_filename(filename)
-            # Preparing the args for the first HMM
-            key_transitions = kt.key_transitions[transitions]
-            trans_p = create_transition_probabilities(key_transitions)
-            major = kp.normalized[profiles_major]
-            minor = kp.normalized[profiles_minor]
-            emit_p = create_emission_probabilities(major, minor)
-            obs = create_observation_list(filepath)
-            state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
+    profiles_major = [
+        'krumhansl_kessler_major',
+        'aarden_essen_major',
+        'sapp_major',
+        'bellman_budge_major',
+        'temperley_major'
+    ]
+    profiles_minor = [
+        'krumhansl_kessler_minor',
+        'aarden_essen_minor',
+        'sapp_minor',
+        'bellman_budge_minor',
+        'temperley_minor'
+    ]
+    for profile_major in profiles_major:
+        for profile_minor in profiles_minor:
+            print("Hidden Markov Model parameters:\n"
+                  "key_transitions: {}\n"
+                  "key_profile (major): {}\n"
+                  "key_profile (minor): {}\n"
+                  "Filename\tOriginal\tGuess\t"
+                  "Correct?".format(transitions, profile_major, profile_minor)
+                  )
+            for root, dirs, files in os.walk('midi'):
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    ground_truth_key = get_key_from_filename(filename)
+                    # Preparing the args for the first HMM
+                    key_transitions = kt.key_transitions[transitions]
+                    trans_p = create_transition_probabilities(key_transitions)
+                    major = kp.normalized[profile_major]
+                    minor = kp.normalized[profile_minor]
+                    emit_p = create_emission_probabilities(major, minor)
+                    obs = create_observation_list(filepath)
+                    state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
 
-            # Preparing the args for the second HMM
-            obs = state_list  # the keys become the observations
-            emit_p = trans_p  # the transitions become emission
-            key_transitions = kt.key_transitions["key_transitions_null"]
-            trans_p = create_transition_probabilities(key_transitions)
-            key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
-            guess_key = key[0]
-            iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
-            print('{}:\t{}\t{}\t{}'.format(filepath,
-                                           ground_truth_key,
-                                           guess_key,
-                                           "Good" if iscorrect else "Wrong"))
+                    # Preparing the args for the second HMM
+                    obs = state_list  # the keys become the observations
+                    emit_p = trans_p  # the transitions become emission
+                    key_transitions = kt.key_transitions["key_transitions_null"]
+                    trans_p = create_transition_probabilities(key_transitions)
+                    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+                    guess_key = key[0]
+                    iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
+                    print('{}:\t{}\t{}\t{}'.format(filepath,
+                                                   ground_truth_key,
+                                                   guess_key,
+                                                   "Good" if iscorrect else "Wrong"))
