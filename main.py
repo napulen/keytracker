@@ -9,6 +9,7 @@ Nestor Napoles (napulen@gmail.com)
 import key_transitions as kt
 import key_profiles as kp
 import mido
+import pprint as pp
 import numpy as np
 import os
 
@@ -143,7 +144,10 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 
 
 if __name__ == '__main__':
-    transitions = 'key_transitions_exponential_10'
+    transitions = [
+        'key_transitions_exponential_10',
+        'key_transitions_exponential',
+    ]
     profiles_major = [
         'krumhansl_kessler_major',
         'aarden_essen_major',
@@ -158,37 +162,44 @@ if __name__ == '__main__':
         'bellman_budge_minor',
         'temperley_minor'
     ]
-    for profile_major in profiles_major:
-        for profile_minor in profiles_minor:
-            print("Hidden Markov Model parameters:\n"
-                  "key_transitions: {}\n"
-                  "key_profile (major): {}\n"
-                  "key_profile (minor): {}\n"
-                  "Filename\tOriginal\tGuess\t"
-                  "Correct?".format(transitions, profile_major, profile_minor)
-                  )
-            for root, dirs, files in os.walk('midi'):
-                for filename in files:
-                    filepath = os.path.join(root, filename)
-                    ground_truth_key = get_key_from_filename(filename)
-                    # Preparing the args for the first HMM
-                    key_transitions = kt.key_transitions[transitions]
-                    trans_p = create_transition_probabilities(key_transitions)
-                    major = kp.normalized[profile_major]
-                    minor = kp.normalized[profile_minor]
-                    emit_p = create_emission_probabilities(major, minor)
-                    obs = create_observation_list(filepath)
-                    state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
+    scores = {}
+    for transition in transitions:
+        for profile_major in profiles_major:
+            for profile_minor in profiles_minor:
+                print("Hidden Markov Model parameters:\n"
+                      "key_transitions: {}\n"
+                      "key_profile (major): {}\n"
+                      "key_profile (minor): {}\n"
+                      "Filename\tOriginal\tGuess\t"
+                      "Correct?".format(transition, profile_major, profile_minor)
+                      )
+                score = 0
+                for root, dirs, files in os.walk('midi'):
+                    for filename in files:
+                        filepath = os.path.join(root, filename)
+                        ground_truth_key = get_key_from_filename(filename)
+                        # Preparing the args for the first HMM
+                        key_transitions = kt.key_transitions[transition]
+                        trans_p = create_transition_probabilities(key_transitions)
+                        major = kp.normalized[profile_major]
+                        minor = kp.normalized[profile_minor]
+                        emit_p = create_emission_probabilities(major, minor)
+                        obs = create_observation_list(filepath)
+                        state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
 
-                    # Preparing the args for the second HMM
-                    obs = state_list  # the keys become the observations
-                    emit_p = trans_p  # the transitions become emission
-                    key_transitions = kt.key_transitions["key_transitions_null"]
-                    trans_p = create_transition_probabilities(key_transitions)
-                    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
-                    guess_key = key[0]
-                    iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
-                    print('{}:\t{}\t{}\t{}'.format(filepath,
-                                                   ground_truth_key,
-                                                   guess_key,
-                                                   "Good" if iscorrect else "Wrong"))
+                        # Preparing the args for the second HMM
+                        obs = state_list  # the keys become the observations
+                        emit_p = trans_p  # the transitions become emission
+                        key_transitions = kt.key_transitions["key_transitions_null"]
+                        trans_p = create_transition_probabilities(key_transitions)
+                        key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+                        guess_key = key[0]
+                        iscorrect = is_key_guess_correct(ground_truth_key, guess_key)
+                        score += 0 if iscorrect else 1
+
+                        print('{}:\t{}\t{}\t{}'.format(filepath,
+                                                       ground_truth_key,
+                                                       guess_key,
+                                                       "Good" if iscorrect else "Wrong"))
+                scores[(transition, profile_major, profile_minor)] = score
+    pp.pprint(scores)
