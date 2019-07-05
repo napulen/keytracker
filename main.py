@@ -12,6 +12,7 @@ import mido
 import pprint as pp
 import numpy as np
 import os
+import argparse
 
 states = (
     'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
@@ -142,8 +143,7 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     #      + ' with highest probability of %s' % max_prob)
     return opt, max_prob
 
-
-if __name__ == '__main__':
+def batch(input_folder):
     transitions = [
         'key_transitions_exponential_10',
         'key_transitions_exponential',
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                       "Correct?".format(transition, profile_major, profile_minor)
                       )
                 score = 0
-                for root, dirs, files in os.walk('midi'):
+                for root, dirs, files in os.walk(input_folder):
                     for filename in files:
                         filepath = os.path.join(root, filename)
                         ground_truth_key = get_key_from_filename(filename)
@@ -203,3 +203,31 @@ if __name__ == '__main__':
                                                        "Good" if iscorrect else "Wrong"))
                 scores[(transition, profile_major, profile_minor)] = score
     pp.pprint(scores)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='justkeydding for midi, python version')
+    parser.add_argument(
+        'input',
+        help='Input midi file (or folder if --batch)'
+    )
+    parser.add_argument(
+        '--batch', 
+        dest='is_batch',
+        const=True,
+        action='store_const',
+        help='Process several files within a folder'
+    )
+    parser.add_argument(
+        '--local', 
+        dest='output_local',
+        const=True,
+        action='store_const',
+        help='Output local keys'
+    )
+
+    args = parser.parse_args()
+    print(args)
+    if args.is_batch:
+        batch(args.input)
+    #print(args.accumulate(args.integers))
