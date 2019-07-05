@@ -143,7 +143,28 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     #      + ' with highest probability of %s' % max_prob)
     return opt, max_prob
 
-def batch(input_folder):
+def analyze(args):
+    # Preparing the args for the first HMM
+    key_transition = kt.key_transitions[args.key_transition]
+    trans_p = create_transition_probabilities(key_transition)
+    major = kp.normalized[args.key_profile_major]
+    minor = kp.normalized[args.key_profile_minor]
+    emit_p = create_emission_probabilities(major, minor)
+    obs = create_observation_list(args.input)
+    local_keys, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
+    if args.output_local:
+        print(local_keys)
+        return
+    # Preparing the args for the second HMM
+    obs = local_keys  # the keys become the observations
+    emit_p = trans_p  # the transitions become emission
+    key_transitions = kt.key_transitions["key_transitions_null"]
+    trans_p = create_transition_probabilities(key_transitions)
+    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+    global_key = key[0]
+    print(global_key)
+    
+def batch(args):
     transitions = [
         'key_transitions_exponential_10',
         'key_transitions_exponential',
@@ -174,7 +195,7 @@ def batch(input_folder):
                       "Correct?".format(transition, profile_major, profile_minor)
                       )
                 score = 0
-                for root, dirs, files in os.walk(input_folder):
+                for root, dirs, files in os.walk(args.input):
                     for filename in files:
                         filepath = os.path.join(root, filename)
                         ground_truth_key = get_key_from_filename(filename)
@@ -225,9 +246,47 @@ if __name__ == '__main__':
         action='store_const',
         help='Output local keys'
     )
+    parser.add_argument(
+        '--transition', 
+        dest='key_transition',
+        choices=[
+            'key_transitions_exponential_10',
+            'key_transitions_exponential'
+        ],
+        default='key_transitions_exponential_10',
+        help='Key transition to use'
+    )
+    parser.add_argument(
+        '--majorEmission',
+        dest='key_profile_major',
+        choices=[
+            'krumhansl_kessler_major',
+            'aarden_essen_major',
+            'sapp_major',
+            'bellman_budge_major',
+            'temperley_major',
+        ],
+        default='sapp_major',
+        help='Major key profile to use as emission probability distribution'
+    )
+    parser.add_argument(
+        '--minorEmission',
+        dest='key_profile_minor',
+        choices=[
+            'krumhansl_kessler_minor',
+            'aarden_essen_minor',
+            'sapp_minor',
+            'bellman_budge_minor',
+            'temperley_minor',
+        ],
+        default='sapp_minor',
+        help='Minor key profile to use as emission probability distribution'
+    )
 
     args = parser.parse_args()
-    print(args)
+    # print(args)
     if args.is_batch:
-        batch(args.input)
-    #print(args.accumulate(args.integers))
+        batch(args)
+    else:
+        analyze(args)
+    
