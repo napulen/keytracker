@@ -9,6 +9,7 @@ Nestor Napoles (napulen@gmail.com)
 import key_transitions as kt
 import key_profiles as kp
 import mido
+import music21
 import pprint as pp
 import numpy as np
 import os
@@ -72,15 +73,47 @@ def get_notes_from_midi(midi_file):
     return notes
 
 
+def get_notes_chords_and_rests_from_music21(m21_input_file):
+    s = music21.converter.parse(m21_input_file)
+    notes_and_rests = s.parts.flat.notesAndRests
+    return notes_and_rests
+
+
+def get_notes_from_music21(notes_chords_and_rests):
+    notes = []
+    for c in notes_chords_and_rests:
+        if isinstance(c, music21.chord.Chord):
+            for n in c:
+                notes.append(n)
+        elif isinstance(c, music21.note.Note):
+            notes.append(c)
+    return notes
+
+
+def get_note_names_from_music21(notes):
+    return [n.name for n in notes]
+
+
+def get_pc_from_music21(notes):
+    return [n.pitch.pitchClass for n in notes]
+
+
 def get_pc_from_midi_notes(notes):
     """Returns the list of pitch-classes from a list of midi notes"""
     return [note % 12 for note in notes]
 
 
-def create_observation_list(midi_file):
-    """Returns a list of pitch classes from the notes on a MIDI file"""
-    notes = get_notes_from_midi(midi_file)
-    return get_pc_from_midi_notes(notes)
+def extract_input_sequence(input_file, is_sequence=False):
+    if is_sequence == True:
+        input_sequence = [int(s) for s in input_file.split(',')]
+    elif input_file.endswith('.mid') or input_file.endswith('.midi'):
+        notes = get_notes_from_midi(input_file)
+        input_sequence = get_pc_from_midi_notes(notes)
+    elif input_file.endswith('.musicxml') or input_file.endswith('.xml') or input_file.endswith('.mei') or input_file.endswith('.krn'):
+        notes_chords_and_rests = get_notes_chords_and_rests_from_music21(input_file)
+        notes = get_notes_from_music21(notes_chords_and_rests)
+        input_sequence = get_pc_from_music21(notes)
+    return input_sequence
 
 
 def mylog(x):
@@ -143,18 +176,18 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     #      + ' with highest probability of %s' % max_prob)
     return opt, max_prob
 
-def analyze(args):
+def analyze(input_sequence, kp_major_name, kp_minor_name, kt_name):
     # Preparing the args for the first HMM
-    key_transition = kt.key_transitions[args.key_transition]
+    key_transition = kt.key_transitions[kt_name]
     trans_p = create_transition_probabilities(key_transition)
-    major = kp.normalized[args.key_profile_major]
-    minor = kp.normalized[args.key_profile_minor]
+    major = kp.normalized[kp_major_name]
+    minor = kp.normalized[kp_minor_name]
     emit_p = create_emission_probabilities(major, minor)
-    obs = create_observation_list(args.input)
+    obs = input_sequence
     local_keys, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
-    if args.output_local:
-        print(local_keys)
-        return
+    # if args.output_local:
+    #     print(local_keys)
+    #     return
     # Preparing the args for the second HMM
     obs = local_keys  # the keys become the observations
     emit_p = trans_p  # the transitions become emission
@@ -162,7 +195,7 @@ def analyze(args):
     trans_p = create_transition_probabilities(key_transitions)
     key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
     global_key = key[0]
-    print(global_key)
+    return [global_key, local_keys]
     
 def batch(args):
     transitions = [
@@ -205,7 +238,7 @@ def batch(args):
                         major = kp.normalized[profile_major]
                         minor = kp.normalized[profile_minor]
                         emit_p = create_emission_probabilities(major, minor)
-                        obs = create_observation_list(filepath)
+                        # obs = create_observation_list(filepath)
                         state_list, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
 
                         # Preparing the args for the second HMM
@@ -227,10 +260,10 @@ def batch(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='justkeydding for midi, python version')
+    parser = argparse.ArgumentParser(description='justkeydding for symbolic music files, python version')
     parser.add_argument(
         'input',
-        help='Input midi file (or folder if --batch)'
+        help='Input symbolic music file (or folder if --batch)'
     )
     parser.add_argument(
         '--batch', 
@@ -238,6 +271,14 @@ if __name__ == '__main__':
         const=True,
         action='store_const',
         help='Process several files within a folder'
+    )
+    parser.add_argument(
+        '--sequence',
+        dest='is_sequence',
+        const=True,
+        action='store_const',
+        default=False,
+        help='Provide the input as a string of comma-separated pitch-classes'
     )
     parser.add_argument(
         '--local', 
@@ -288,5 +329,10 @@ if __name__ == '__main__':
     if args.is_batch:
         batch(args)
     else:
-        analyze(args)
+        input_sequence = extract_input_sequence(args.input, args.is_sequence)
+        outputs = analyze(input_sequence, args.key_profile_major, args.key_profile_minor, args.key_transition)
+        if args.output_local:
+            print(outputs)
+        else:
+            print(outputs[0])
     
