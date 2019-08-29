@@ -35,6 +35,36 @@ start_p = {
 }
 
 
+observations = [
+    [3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0],
+]
+
+class EmissionProbabilities(object):
+    def __init__(self, major, minor, norm=2):
+        self.norm = norm
+        self.major = np.array(major)
+        self.major = self.major / np.linalg.norm(self.major, self.norm)
+        self.minor = np.array(minor)
+        self.minor = self.minor / np.linalg.norm(self.minor, self.norm)
+
+    def compute(self, state, observation):
+        observation = np.array(observation)
+        if np.linalg.norm(observation) <= 0.001:
+            return 1.0
+        observation = observation / np.linalg.norm(observation, self.norm)
+        state_int = states.index(state)
+        kp = self.major if state_int < 12 else self.minor
+        kp_rotated = np.roll(kp, state_int % 12)
+        return kp_rotated.dot(observation)
+
+
 def create_transition_probabilities(key_transitions):
     """Returns the transition probabilities"""
     d = dict()
@@ -104,17 +134,14 @@ def get_pc_from_midi_notes(notes):
 
 
 def extract_input_sequence(input_file, is_sequence=False):
-    if is_sequence == True:
-        input_sequence = [int(s) for s in input_file.split(',')]
-    elif input_file.endswith('.mid') or input_file.endswith('.midi'):
-        notes = get_notes_from_midi(input_file)
-        input_sequence = get_pc_from_midi_notes(notes)
-    elif input_file.endswith('.musicxml') or input_file.endswith('.xml') or input_file.endswith('.mei') or input_file.endswith('.krn'):
-        notes_chords_and_rests = get_notes_chords_and_rests_from_music21(input_file)
-        notes = get_notes_from_music21(notes_chords_and_rests)
-        input_sequence = get_pc_from_music21(notes)
+    input_sequence = []
+    with open(input_file) as fd:
+        chromagram = fd.readlines()
+    for chrm in chromagram:
+        tokens = chrm.split(',')[1:]
+        rotated = tokens[3:] + tokens[:3]
+        input_sequence.append([float(pc) for pc in rotated])
     return input_sequence
-
 
 def mylog(x):
     """Returns the logarithm of x (without the annoying warnings of np.log)"""
@@ -137,7 +164,46 @@ def is_key_guess_correct(ground_truth, guess):
     return iscorrect
 
 
-def viterbi(obs, states, start_p, trans_p, emit_p):
+def viterbi1(obs, states, start_p, trans_p, emit_p):
+    V = [{}]
+    for st in states:
+        V[0][st] = {
+            "prob": mylog(start_p[st])
+            + mylog(emit_p.compute(st, obs[0])), "prev": None
+            }
+    # Run Viterbi when t > 0
+    for t in range(1, len(obs)):
+        V.append({})
+        for st in states:
+            max_tr_prob = max(V[t-1][prev_st]["prob"] + mylog(trans_p[prev_st][st]) for prev_st in states)
+            for prev_st in states:
+                if V[t-1][prev_st]["prob"] + mylog(trans_p[prev_st][st]) == max_tr_prob:
+                    max_prob = max_tr_prob + mylog(emit_p.compute(st, obs[t]))
+                    V[t][st] = {"prob": max_prob, "prev": prev_st}
+                    break
+    # for line in dptable(V):
+    #    print(line)
+    opt = []
+    # The highest probability
+    max_prob = max(value["prob"] for value in V[-1].values())
+    previous = None
+    # Get most probable state and its backtrack
+    for st, data in V[-1].items():
+        if data["prob"] == max_prob:
+            opt.append(st)
+            previous = st
+            break
+    # Follow the backtrack till the first observation
+    for t in range(len(V) - 2, -1, -1):
+        opt.insert(0, V[t + 1][previous]["prev"])
+        previous = V[t + 1][previous]["prev"]
+
+    # print('The steps of states are '
+    #     + ' '.join(opt)
+    #      + ' with highest probability of %s' % max_prob)
+    return opt, max_prob
+
+def viterbi2(obs, states, start_p, trans_p, emit_p):
     V = [{}]
     for st in states:
         V[0][st] = {
@@ -182,9 +248,10 @@ def analyze(input_sequence, kp_major_name, kp_minor_name, kt_name):
     trans_p = create_transition_probabilities(key_transition)
     major = kp.normalized[kp_major_name]
     minor = kp.normalized[kp_minor_name]
-    emit_p = create_emission_probabilities(major, minor)
+    # emit_p = create_emission_probabilities(major, minor)
+    emit_p = EmissionProbabilities(major, minor)
     obs = input_sequence
-    local_keys, max_p = viterbi(obs, states, start_p, trans_p, emit_p)
+    local_keys, max_p = viterbi1(obs, states, start_p, trans_p, emit_p)
     # if args.output_local:
     #     print(local_keys)
     #     return
@@ -193,10 +260,10 @@ def analyze(input_sequence, kp_major_name, kp_minor_name, kt_name):
     emit_p = trans_p  # the transitions become emission
     key_transitions = kt.key_transitions["key_transitions_null"]
     trans_p = create_transition_probabilities(key_transitions)
-    key, max_prob = viterbi(obs, states, start_p, trans_p, emit_p)
+    key, max_prob = viterbi2(obs, states, start_p, trans_p, emit_p)
     global_key = key[0]
     return [global_key, local_keys]
-    
+
 def batch(args):
     transitions = [
         'key_transitions_exponential_10',
@@ -266,7 +333,7 @@ if __name__ == '__main__':
         help='Input symbolic music file (or folder if --batch)'
     )
     parser.add_argument(
-        '--batch', 
+        '--batch',
         dest='is_batch',
         const=True,
         action='store_const',
@@ -281,14 +348,14 @@ if __name__ == '__main__':
         help='Provide the input as a string of comma-separated pitch-classes'
     )
     parser.add_argument(
-        '--local', 
+        '--local',
         dest='output_local',
         const=True,
         action='store_const',
         help='Output local keys'
     )
     parser.add_argument(
-        '--transition', 
+        '--transition',
         dest='key_transition',
         choices=[
             'key_transitions_exponential_10',
@@ -323,7 +390,6 @@ if __name__ == '__main__':
         default='sapp_minor',
         help='Minor key profile to use as emission probability distribution'
     )
-
     args = parser.parse_args()
     # print(args)
     if args.is_batch:
@@ -335,4 +401,4 @@ if __name__ == '__main__':
             print(outputs)
         else:
             print(outputs[0])
-    
+
