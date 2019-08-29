@@ -35,17 +35,6 @@ start_p = {
 }
 
 
-observations = [
-    [3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0],
-]
-
 class EmissionProbabilities(object):
     def __init__(self, major, minor, norm=2):
         self.norm = norm
@@ -55,10 +44,9 @@ class EmissionProbabilities(object):
         self.minor = self.minor / np.linalg.norm(self.minor, self.norm)
 
     def compute(self, state, observation):
-        observation = np.array(observation)
-        if np.linalg.norm(observation) <= 0.001:
-            return 1.0
-        observation = observation / np.linalg.norm(observation, self.norm)
+        # if np.linalg.norm(observation) <= 0.001:
+        #     return 1.0
+        # observation = observation / np.linalg.norm(observation, self.norm)
         state_int = states.index(state)
         kp = self.major if state_int < 12 else self.minor
         kp_rotated = np.roll(kp, state_int % 12)
@@ -133,14 +121,25 @@ def get_pc_from_midi_notes(notes):
     return [note % 12 for note in notes]
 
 
-def extract_input_sequence(input_file, is_sequence=False):
+def extract_input_sequence(input_file, skip_threshold=0.85):
     input_sequence = []
+    prev_chroma = np.zeros(12)
     with open(input_file) as fd:
         chromagram = fd.readlines()
-    for chrm in chromagram:
-        tokens = chrm.split(',')[1:]
-        rotated = tokens[3:] + tokens[:3]
-        input_sequence.append([float(pc) for pc in rotated])
+    for row in chromagram:
+        chroma = row.split(',')[1:]
+        # Put the pcs in C-B order instead of A-G#
+        chroma = chroma[3:] + chroma[:3]
+        chroma = np.array([float(pc) for pc in chroma])
+        norm = np.linalg.norm(chroma)
+        # Ignoring all the chroma vectors that are zero
+        if norm < 0.01:
+            continue
+        chroma = chroma / norm
+        dot = chroma.dot(prev_chroma)
+        if dot < skip_threshold:
+            input_sequence.append(chroma)
+            prev_chroma = chroma
     return input_sequence
 
 def mylog(x):
@@ -358,10 +357,11 @@ if __name__ == '__main__':
         '--transition',
         dest='key_transition',
         choices=[
+            'key_transitions_linear',
             'key_transitions_exponential_10',
             'key_transitions_exponential'
         ],
-        default='key_transitions_exponential_10',
+        default='key_transitions_linear',
         help='Key transition to use'
     )
     parser.add_argument(
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     if args.is_batch:
         batch(args)
     else:
-        input_sequence = extract_input_sequence(args.input, args.is_sequence)
+        input_sequence = extract_input_sequence(args.input)
         outputs = analyze(input_sequence, args.key_profile_major, args.key_profile_minor, args.key_transition)
         if args.output_local:
             print(outputs)
